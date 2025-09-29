@@ -1,1 +1,4 @@
-# -lab-experimentacao-de-software-3
+# Laboratório de Experimentação de Software 3
+## Integrantes
+* Gustavo Barbosa
+* Gabriel Silva
