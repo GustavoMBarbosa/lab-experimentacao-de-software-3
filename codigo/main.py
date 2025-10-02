@@ -14,6 +14,19 @@ CSV_REPOS = "arquivos/repositorios_populares.csv"
 CSV_PRS = "arquivos/pull_requests.csv"
 
 # ==============================
+# Query GraphQL para contar PRs de um repositório
+# ==============================
+query_pr_count = """
+query ($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: [MERGED, CLOSED]) {
+      totalCount
+    }
+  }
+}
+"""
+
+# ==============================
 # Query GraphQL para buscar PRs
 # ==============================
 query_prs = """
@@ -27,7 +40,7 @@ query ($owner: String!, $name: String!, $cursor: String) {
       nodes {
         number
         title
-        bodyText
+        body
         createdAt
         closedAt
         mergedAt
@@ -51,7 +64,31 @@ query ($owner: String!, $name: String!, $cursor: String) {
 """
 
 # ==============================
-# Função para buscar PRs
+# Função para checar se repo tem >= 100 PRs
+# ==============================
+def has_enough_prs(owner, name, min_prs=100):
+    try:
+        variables = {"owner": owner, "name": name}
+        response = requests.post(URL, json={"query": query_pr_count, "variables": variables}, headers=HEADERS)
+
+        if response.status_code != 200:
+            print(f"Erro {response.status_code} ao checar PRs de {owner}/{name}")
+            return False
+
+        data = response.json()
+        repo = data["data"]["repository"]
+        if not repo:
+            return False
+
+        total_prs = repo["pullRequests"]["totalCount"]
+        return total_prs >= min_prs
+
+    except Exception as e:
+        print(f"Erro ao verificar PRs de {owner}/{name}: {e}")
+        return False
+
+# ==============================
+# Função para buscar PRs (com filtros)
 # ==============================
 def fetch_pull_requests(owner, name, max_prs=200):
     all_prs = []
@@ -74,7 +111,31 @@ def fetch_pull_requests(owner, name, max_prs=200):
                 break
 
             prs_page = repo["pullRequests"]
-            all_prs.extend(prs_page["nodes"])
+
+            for pr in prs_page["nodes"]:
+                # Filtro 1: Pelo menos uma revisão
+                if pr["reviews"]["totalCount"] < 1:
+                    continue
+
+                # Filtro 2: Tempo de análise (criação -> merge/close)
+                created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
+                end_time = None
+                if pr["mergedAt"]:
+                    end_time = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
+                elif pr["closedAt"]:
+                    end_time = datetime.fromisoformat(pr["closedAt"].replace("Z", "+00:00"))
+
+                if not end_time:
+                    continue
+
+                analysis_time = (end_time - created_at).total_seconds() / 3600
+
+                # Adicionar métricas
+                pr["analysis_time_hours"] = analysis_time
+                pr["description_length"] = len(pr["body"]) if pr["body"] else 0
+                pr["total_lines_changed"] = pr["additions"] + pr["deletions"]
+
+                all_prs.append(pr)
 
             if not prs_page["pageInfo"]["hasNextPage"] or len(all_prs) >= max_prs:
                 break
@@ -99,23 +160,11 @@ def save_prs_to_csv(prs, filename=CSV_PRS):
         writer.writerow([
             "RepoOwner", "RepoName", "PR_Number", "Title", "State",
             "CreatedAt", "ClosedAt", "MergedAt", "AnalysisTimeHours",
-            "FilesChanged", "Additions", "Deletions",
-            "BodySizeChars", "Participants", "Comments", "Reviews"
+            "FilesChanged", "Additions", "Deletions", "TotalLinesChanged",
+            "DescriptionLength", "Participants", "Comments", "Reviews"
         ])
 
         for pr in prs:
-            created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
-            closed_at = pr["closedAt"]
-            merged_at = pr["mergedAt"]
-
-            end_time = None
-            if merged_at:
-                end_time = datetime.fromisoformat(merged_at.replace("Z", "+00:00"))
-            elif closed_at:
-                end_time = datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
-
-            analysis_time = (end_time - created_at).total_seconds() / 3600 if end_time else None
-
             writer.writerow([
                 pr["repo_owner"],
                 pr["repo_name"],
@@ -125,17 +174,18 @@ def save_prs_to_csv(prs, filename=CSV_PRS):
                 pr["createdAt"],
                 pr["closedAt"],
                 pr["mergedAt"],
-                f"{analysis_time:.2f}" if analysis_time else "",
+                f"{pr['analysis_time_hours']:.2f}",
                 pr.get("changedFiles", 0),
                 pr.get("additions", 0),
                 pr.get("deletions", 0),
-                len(pr.get("bodyText", "")) if pr.get("bodyText") else 0,
+                pr.get("total_lines_changed", 0),
+                pr.get("description_length", 0),
                 pr["participants"]["totalCount"],
                 pr["comments"]["totalCount"],
                 pr["reviews"]["totalCount"],
             ])
 
-    print(f"Arquivo '{filename}' salvo com sucesso!")
+    print(f"Arquivo '{filename}' salvo com {len(prs)} PRs válidos!")
 
 # ==============================
 # Main
@@ -150,20 +200,33 @@ def main():
         return
 
     prs_dataset = []
+    total_repos = 0
 
     with open(CSV_REPOS, newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
-        for row in reader:
+        repos_list = list(reader)
+        total_repos = len(repos_list)
+
+        for i, row in enumerate(repos_list):
             owner, name = row["Owner"], row["Name"]
-            print(f"Coletando PRs de {owner}/{name}...")
+
+            # Só processa repositórios com >= 100 PRs MERGED+CLOSED
+            if not has_enough_prs(owner, name):
+                print(f"Pulando {owner}/{name} (menos de 100 PRs MERGED+CLOSED)")
+                continue
+
+            print(f"Coletando PRs de {owner}/{name} ({i+1}/{total_repos})...")
+
             prs = fetch_pull_requests(owner, name, max_prs=200)
 
             for pr in prs:
                 pr["repo_owner"] = owner
                 pr["repo_name"] = name
-            prs_dataset.extend(prs)
+                prs_dataset.append(pr)
 
-    print(f"Total de PRs coletados: {len(prs_dataset)}")
+            time.sleep(2)  # evitar rate limit
+
+    print(f"Coleta finalizada! Total de PRs válidos: {len(prs_dataset)}")
     save_prs_to_csv(prs_dataset)
 
 if __name__ == "__main__":
