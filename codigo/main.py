@@ -90,6 +90,9 @@ def has_enough_prs(owner, name, min_prs=100):
 # ==============================
 # Função para buscar PRs (com filtros)
 # ==============================
+# ==============================
+# Função para buscar PRs (com filtros e métricas completas)
+# ==============================
 def fetch_pull_requests(owner, name, max_prs=200):
     all_prs = []
     cursor = None
@@ -113,16 +116,16 @@ def fetch_pull_requests(owner, name, max_prs=200):
             prs_page = repo["pullRequests"]
 
             for pr in prs_page["nodes"]:
-                # Filtro 1: Pelo menos uma revisão
-                if pr["reviews"]["totalCount"] < 1:
+                # Filtro: pelo menos uma revisão
+                if pr.get("reviews", {}).get("totalCount", 0) < 1:
                     continue
 
-                # Filtro 2: Tempo de análise (criação -> merge/close)
+                # Tempo de análise
                 created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
                 end_time = None
-                if pr["mergedAt"]:
+                if pr.get("mergedAt"):
                     end_time = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
-                elif pr["closedAt"]:
+                elif pr.get("closedAt"):
                     end_time = datetime.fromisoformat(pr["closedAt"].replace("Z", "+00:00"))
 
                 if not end_time:
@@ -130,10 +133,29 @@ def fetch_pull_requests(owner, name, max_prs=200):
 
                 analysis_time = (end_time - created_at).total_seconds() / 3600
 
+                # Garantir valores default
+                additions = pr.get("additions") or 0
+                deletions = pr.get("deletions") or 0
+                changed_files = pr.get("changedFiles") or 0
+                body_length = len(pr.get("body") or "")
+
+                # Métrica derivada opcional
+                lines_per_file = (additions + deletions) / changed_files if changed_files > 0 else 0
+
+                # Status binário
+                pr_status = 1 if pr["state"] == "MERGED" else 0
+
                 # Adicionar métricas
-                pr["analysis_time_hours"] = analysis_time
-                pr["description_length"] = len(pr["body"]) if pr["body"] else 0
-                pr["total_lines_changed"] = pr["additions"] + pr["deletions"]
+                pr.update({
+                    "analysis_time_hours": analysis_time,
+                    "description_length": body_length,
+                    "total_lines_changed": additions + deletions,
+                    "additions": additions,
+                    "deletions": deletions,
+                    "changedFiles": changed_files,
+                    "lines_per_file": lines_per_file,
+                    "pr_status": pr_status
+                })
 
                 all_prs.append(pr)
 
@@ -145,12 +167,13 @@ def fetch_pull_requests(owner, name, max_prs=200):
 
         except Exception as e:
             print(f"Erro ao buscar PRs de {owner}/{name}: {e}")
+            print(f"tentando novamente em 10 segundos...")
             time.sleep(10)
 
     return all_prs[:max_prs]
 
 # ==============================
-# Salvar PRs em CSV
+# Salvar PRs em CSV (com métricas completas)
 # ==============================
 def save_prs_to_csv(prs, filename=CSV_PRS):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -159,9 +182,9 @@ def save_prs_to_csv(prs, filename=CSV_PRS):
         writer = csv.writer(csvfile)
         writer.writerow([
             "RepoOwner", "RepoName", "PR_Number", "Title", "State",
-            "CreatedAt", "ClosedAt", "MergedAt", "AnalysisTimeHours",
+            "PR_Status", "CreatedAt", "ClosedAt", "MergedAt", "AnalysisTimeHours",
             "FilesChanged", "Additions", "Deletions", "TotalLinesChanged",
-            "DescriptionLength", "Participants", "Comments", "Reviews"
+            "LinesPerFile", "DescriptionLength", "Participants", "Comments", "Reviews"
         ])
 
         for pr in prs:
@@ -171,18 +194,20 @@ def save_prs_to_csv(prs, filename=CSV_PRS):
                 pr["number"],
                 pr["title"],
                 pr["state"],
+                pr.get("pr_status", 0),
                 pr["createdAt"],
-                pr["closedAt"],
-                pr["mergedAt"],
-                f"{pr['analysis_time_hours']:.2f}",
+                pr.get("closedAt"),
+                pr.get("mergedAt"),
+                f"{pr.get('analysis_time_hours', 0):.2f}",
                 pr.get("changedFiles", 0),
                 pr.get("additions", 0),
                 pr.get("deletions", 0),
                 pr.get("total_lines_changed", 0),
+                f"{pr.get('lines_per_file', 0):.2f}",
                 pr.get("description_length", 0),
-                pr["participants"]["totalCount"],
-                pr["comments"]["totalCount"],
-                pr["reviews"]["totalCount"],
+                pr.get("participants", {}).get("totalCount", 0),
+                pr.get("comments", {}).get("totalCount", 0),
+                pr.get("reviews", {}).get("totalCount", 0),
             ])
 
     print(f"Arquivo '{filename}' salvo com {len(prs)} PRs válidos!")
