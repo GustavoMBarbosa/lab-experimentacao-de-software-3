@@ -204,10 +204,7 @@ A Sprint 3 consolidou a análise iniciada nas sprints anteriores, permitindo con
   - Métricas simplificadas, sem controle por linguagem de programação.  
 
 - **Trabalhos futuros:**
-  - Expandir a coleta para mais linguagens e tipos de repositórios.  
   - Aplicar testes estatísticos formais (ex.: correlação de Spearman).  
-  - Construir dashboards interativos para análise exploratória.  
-  - Investigar relação entre revisores e tempo médio por revisão.
 
 ---
 
