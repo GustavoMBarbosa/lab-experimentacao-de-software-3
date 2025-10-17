@@ -116,7 +116,7 @@ Os gráficos a seguir apresentam as relações entre as métricas definidas e os
 
 ### 🔹 RQ02 – Relação entre o tempo de análise e o feedback final
 **Hipótese IH02:** PRs analisados mais rapidamente têm maior chance de merge.  
-**Análise:** A relação foi confirmada parcialmente — PRs revisados em até 24 horas têm uma taxa de aceitação superior à média. Revisões longas estão associadas a PRs complexos e, muitas vezes, rejeitados.  
+**Análise:** A relação foi confirmada parcialmente — Revisões longas estão associadas a PRs complexos e, muitas vezes, rejeitados.  
 **Gráfico:**  
 <p align="center">
   <img src="RQ02_tempo_feedback.png" width="800">
@@ -146,7 +146,7 @@ Os gráficos a seguir apresentam as relações entre as métricas definidas e os
 
 ### 🔹 RQ05 – Relação entre tamanho e número de revisões
 **Hipótese IH05:** PRs maiores demandam mais revisões até aprovação.  
-**Análise:** A tendência foi observada: conforme o número de arquivos modificados e linhas alteradas aumenta, também cresce o número de revisões.  
+**Análise:** O número de revisões não necessariamente aumenta conforme o número de arquivos modificados e linhas alteradas aumenta.  
 **Gráfico:**  
 <p align="center">
   <img src="RQ05_tamanho_revisoes.png" width="800">
@@ -156,7 +156,7 @@ Os gráficos a seguir apresentam as relações entre as métricas definidas e os
 
 ### 🔹 RQ06 – Relação entre tempo de análise e número de revisões
 **Hipótese IH06:** PRs com análise mais longa possuem mais revisões.  
-**Análise:** A correlação é clara — quanto maior o tempo de análise, maior o número médio de revisões. Revisões múltiplas ocorrem principalmente em PRs complexos ou de grandes projetos.  
+**Análise:** O número médio de revisões não necessariamente aumenta conforme o tempo de análise.
 **Gráfico:**  
 <p align="center">
   <img src="RQ06_tempo_revisoes.png" width="800">
@@ -166,7 +166,7 @@ Os gráficos a seguir apresentam as relações entre as métricas definidas e os
 
 ### 🔹 RQ07 – Relação entre descrição e número de revisões
 **Hipótese IH07:** PRs bem descritos reduzem a necessidade de revisões adicionais.  
-**Análise:** A hipótese foi **confirmada** — PRs com descrições completas passam por menos ciclos de revisão. A clareza inicial facilita a aprovação rápida.  
+**Análise:** A hipótese não foi confirmada — PRs com descrições completas passam por mais ciclos de revisão. A clareza inicial facilita a aprovação rápida.  
 **Gráfico:**  
 <p align="center">
   <img src="RQ07_descricao_revisoes.png" width="800">
