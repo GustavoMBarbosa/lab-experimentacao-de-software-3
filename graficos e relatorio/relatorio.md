@@ -188,20 +188,14 @@ Os gráficos a seguir apresentam as relações entre as métricas definidas e os
 
 A Sprint 3 consolidou a análise iniciada nas sprints anteriores, permitindo confirmar e refinar as hipóteses propostas.
 
-- **Principais descobertas:**
-  - PRs grandes e complexos demoram mais e têm menor taxa de aceitação.  
-  - PRs com descrições claras são mais aceitos e requerem menos revisões.  
-  - O tempo de análise está positivamente correlacionado ao número de revisões.  
-  - Interações elevadas indicam colaboração, mas nem sempre garantem aceitação.  
-
 - **Confirmações das hipóteses:**
-  - IH01 → Confirmada parcialmente  
-  - IH02 → Confirmada parcialmente  
+  - IH01 → Confirmada  
+  - IH02 → Confirmada parcialmente
   - IH03 → Confirmada  
   - IH04 → Confirmada  
-  - IH05 → Confirmada  
-  - IH06 → Confirmada  
-  - IH07 → Confirmada  
+  - IH05 → Não confirmada  
+  - IH06 → Não confirmada  
+  - IH07 → Não confirmada  
   - IH08 → Confirmada  
 
 - **Limitações:**
